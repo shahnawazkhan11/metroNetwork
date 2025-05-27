@@ -14,6 +14,52 @@ CORS(app)  # allow only your frontend
 NETWORKS_DIR = "saved_networks"
 os.makedirs(NETWORKS_DIR, exist_ok=True)
 
+# Utility: Krushkal's algorithm
+def find(parent, i):
+    if parent[i] != i:
+        parent[i] = find(parent, parent[i])
+    return parent[i]
+
+def union(parent, rank, x, y):
+    xroot = find(parent, x)
+    yroot = find(parent, y)
+    if rank[xroot] < rank[yroot]:
+        parent[xroot] = yroot
+    elif rank[xroot] > rank[yroot]:
+        parent[yroot] = xroot
+    else:
+        parent[yroot] = xroot
+        rank[xroot] += 1
+
+def kruskal_mst(nodes, edges):
+    # Validate inputs
+    if not nodes or not edges:
+        raise ValueError("Empty nodes or edges list")
+        
+    # Create edge list with weights
+    edge_list = []
+    for edge in edges:
+        if not all(key in edge for key in ["from", "to", "weight"]):
+            raise ValueError("Edge missing required fields")
+        edge_list.append((float(edge["weight"]), edge["from"], edge["to"]))
+    
+    # Sort edges by weight
+    edge_list.sort()
+    
+    parent = {node: node for node in nodes}
+    rank = {node: 0 for node in nodes}
+    
+    mst = []
+    total_weight = 0
+    
+    for weight, u, v in edge_list:
+        if find(parent, u) != find(parent, v):
+            union(parent, rank, u, v)
+            mst.append({"from": u, "to": v, "weight": weight})
+            total_weight += weight
+            
+    return mst, total_weight
+
 # Utility: Dijkstra's algorithm
 def dijkstra(nodes, edges, source, destination):
     # Validate inputs
@@ -212,6 +258,54 @@ def shortest_path():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"Failed to find shortest path: {str(e)}"}), 500
+
+
+@app.route("/api/minimum-spanning-tree", methods=["POST"])
+def minimum_spanning_tree():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON format"}), 400
+
+        if "network_name" in data:
+            # Load saved network
+            name = data["network_name"]
+            
+            # Validate network name
+            if "/" in name or "\\" in name or ".." in name:
+                return jsonify({"error": "Invalid network name"}), 400
+                
+            path = os.path.join(NETWORKS_DIR, f"{name}.json")
+            if not os.path.exists(path):
+                return jsonify({"error": f"Network '{name}' not found"}), 404
+                
+            with open(path, 'r') as f:
+                saved = json.load(f)
+            nodes = saved.get("nodes", [])
+            edges = saved.get("edges", [])
+        else:
+            nodes = data.get("nodes", [])
+            edges = data.get("edges", [])
+            
+            if not nodes:
+                return jsonify({"error": "Missing nodes"}), 400
+            if not edges:
+                return jsonify({"error": "Missing edges"}), 400
+
+        mst_edges, total_weight = kruskal_mst(nodes, edges)
+        
+        return jsonify({
+            "minimum_spanning_tree": mst_edges,
+            "total_weight": total_weight,
+            "edge_count": len(mst_edges)
+        })
+        
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to find MST: {str(e)}"}), 500
+    
+    
 
 
 if __name__ == '__main__':

@@ -20,6 +20,7 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
   const [path, setPath] = useState<string[]>([]);
+  const [mstEdges, setMstEdges] = useState<Edge[]>([]);
 
   const handleMapClick = useCallback(
     (e: google.maps.MapMouseEvent) => {
@@ -140,6 +141,41 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
     }
   };
 
+  const handleMST = async () => {
+  try {
+    const res = await fetch("http://localhost:5000/api/minimum-spanning-tree", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        network_name: "dehradun_network",
+      }),
+    });
+
+    if (!res.ok) throw new Error("Request failed");
+
+    const data = await res.json();
+
+    if (data.minimum_spanning_tree) {
+      const mstEdgeList = data.minimum_spanning_tree.map((edge: any) => ({
+        from: stations.find((s) => s.name === edge.from)?.id!,
+        to: stations.find((s) => s.name === edge.to)?.id!,
+        weight: edge.weight,
+      }));
+      setMstEdges(mstEdgeList);
+      
+      const mstPath = data.minimum_spanning_tree.map((edge: any) => 
+        `${edge.from} -> ${edge.to} (${edge.weight})`
+      ).join("\n");
+      
+      alert(`Total MST Weight: ${data.total_weight}\n\nMST Edges:\n${mstPath}`);
+    } else {
+      alert(data.error || "Could not find MST");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error finding minimum spanning tree");
+  }
+};
   return (
     <div className="flex w-full h-screen">
       <div className="flex-col p-4">
@@ -186,6 +222,13 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
             className="px-4 py-2 bg-purple-600 text-white rounded"
           >
             Get Shortest Path
+          </button>
+
+           <button
+            onClick={handleMST}
+            className="px-4 py-2 bg-purple-600 text-white rounded"
+          >
+            Get MST
           </button>
         </div>
         <div className="mt-4 p-8 bg-white rounded shadow">
