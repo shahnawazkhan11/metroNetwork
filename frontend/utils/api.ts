@@ -9,6 +9,9 @@ export const saveNetwork = (payload: NetworkPayload) =>
 export const getShortestPath = (payload: PathRequest) =>
   axios.post(`${BASE}/shortest-path`, payload);
 
+export const getMST = (payload: PathRequest) =>
+  axios.post(`${BASE}/minimum-spanning-tree`, payload);
+
 export const getNetworks = () => axios.get(`${BASE}/networks`);
 
 export const loadNetwork = (name: string) =>
