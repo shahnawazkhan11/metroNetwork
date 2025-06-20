@@ -1,1 +1,1 @@
-{"nodes": ["Station-1", "Station-2", "Station-3", "Station-4", "Station-5"], "edges": [{"from": "Station-1", "to": "Station-2", "weight": 100}, {"from": "Station-2", "to": "Station-3", "weight": 200}, {"from": "Station-3", "to": "Station-1", "weight": 100}, {"from": "Station-4", "to": "Station-3", "weight": 1000}]}
+{"nodes": ["Station-1", "Station-2", "Station-3", "Station-4"], "edges": [{"from": "Station-4", "to": "Station-2", "weight": 1}]}

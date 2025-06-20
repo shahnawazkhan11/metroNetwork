@@ -20,6 +20,7 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
   const [path, setPath] = useState<string[]>([]);
+  const [mstEdges, setMstEdges] = useState<Edge[]>([]);
 
   const handleMapClick = useCallback(
     (e: google.maps.MapMouseEvent) => {
@@ -140,26 +141,67 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
     }
   };
 
+  const handleMST = async () => {
+    try {
+      const res = await fetch(
+        "http://localhost:5000/api/minimum-spanning-tree",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            network_name: "dehradun_network",
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error("Request failed");
+
+      const data = await res.json();
+
+      if (data.minimum_spanning_tree) {
+        const mstEdgeList = data.minimum_spanning_tree.map((edge: any) => ({
+          from: stations.find((s) => s.name === edge.from)?.id!,
+          to: stations.find((s) => s.name === edge.to)?.id!,
+          weight: edge.weight,
+        }));
+        setMstEdges(mstEdgeList);
+
+        const mstPath = data.minimum_spanning_tree
+          .map((edge: any) => `${edge.from} -> ${edge.to} (${edge.weight})`)
+          .join("\n");
+
+        alert(
+          `Total MST Weight: ${data.total_weight}\n\nMST Edges:\n${mstPath}`
+        );
+      } else {
+        alert(data.error || "Could not find MST");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error finding minimum spanning tree");
+    }
+  };
   return (
     <div className="flex w-full h-screen">
       <div className="flex-col p-4">
         <div className="mt-4 flex gap-2 flex-col p-8 bg-white rounded shadow">
           <button
             onClick={connectStations}
-            className="px-4 py-2 bg-blue-500 text-white rounded"
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Connect Selected Stations
           </button>
+
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-green-500 text-white rounded"
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Save Network
           </button>
 
           <select
             onChange={(e) => setSource(e.target.value)}
-            className="p-2 border"
+            className="p-2 border border-gray-300 rounded shadow-sm hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 text-gray-700"
           >
             <option value="">Select Source</option>
             {stations.map((s) => (
@@ -171,7 +213,7 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
 
           <select
             onChange={(e) => setDestination(e.target.value)}
-            className="p-2 border"
+            className="p-2 border border-gray-300 rounded shadow-sm hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 text-gray-700"
           >
             <option value="">Select Destination</option>
             {stations.map((s) => (
@@ -183,25 +225,38 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
 
           <button
             onClick={handleShortestPath}
-            className="px-4 py-2 bg-purple-600 text-white rounded"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Get Shortest Path
           </button>
+
+          <button
+            onClick={handleMST}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+          >
+            Get MST
+          </button>
         </div>
-        <div className="mt-4 p-8 bg-white rounded shadow">
-          <h2 className="text-lg font-semibold mb-4">Map Keys</h2>
-          <ul className="space-y-2">
-            <li className="flex items-center gap-2">
-              <MapPin className="w-6 h-6 text-red-500" />
-              <span>Station (Pointer Mark)</span>
+        <div className="mt-4 p-8 bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-100">
+          <h2 className="text-xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+            Map Keys
+          </h2>
+          <ul className="space-y-4">
+            <li className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 transition-colors duration-200">
+              <MapPin className="w-6 h-6 text-red-500 drop-shadow-sm" />
+              <span className="text-gray-700 font-medium">
+                Station (Pointer Mark)
+              </span>
             </li>
-            <li className="flex items-center gap-2">
-              <div className="w-6 h-1 bg-red-500" />
-              <span>Edge (Red Line)</span>
+            <li className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 transition-colors duration-200">
+              <div className="w-6 h-1 bg-red-500 rounded-full shadow-sm" />
+              <span className="text-gray-700 font-medium">Edge (Red Line)</span>
             </li>
-            <li className="flex items-center gap-2">
-              <div className="w-6 h-1 bg-green-500" />
-              <span>Shortest Path (Green Line)</span>
+            <li className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 transition-colors duration-200">
+              <div className="w-6 h-1 bg-green-500 rounded-full shadow-sm" />
+              <span className="text-gray-700 font-medium">
+                Shortest Path (Green Line)
+              </span>
             </li>
           </ul>
         </div>
@@ -220,6 +275,13 @@ const MapCanvas = ({ apiKey }: { apiKey: string }) => {
               position={station.position}
               label={station.name}
               onClick={() => handleMarkerClick(station.id)}
+              // Only apply custom icon when selected, otherwise use default
+              {...(selected.includes(station.id) && {
+                icon: {
+                  url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                  scaledSize: new google.maps.Size(32, 32),
+                },
+              })}
             />
           ))}
 
